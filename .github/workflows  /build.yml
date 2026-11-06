@@ -1,3 +1,4 @@
+
 name: Build ErebusRust APK
 
 on:
@@ -10,9 +11,14 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: erebusrust-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
@@ -26,18 +32,15 @@ jobs:
           ZIP="ErebusRust.zip"
 
           if [ ! -f "$ZIP" ]; then
-            echo "ERROR: $ZIP not found in repository root"
+            echo "::error::ErebusRust.zip not found"
             exit 1
           fi
 
           mkdir -p project
           unzip -q "$ZIP" -d project
 
-          if [ ! -f project/Erebus/app/build.gradle.kts ]; then
-            echo "ERROR: Expected project/Erebus/app/build.gradle.kts"
-            find project -maxdepth 5 -type f | head -100
-            exit 1
-          fi
+          test -f project/Erebus/settings.gradle.kts
+          test -f project/Erebus/app/build.gradle.kts
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -50,15 +53,18 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Install Android SDK packages
+      - name: Install Rustup
+        shell: bash
         run: |
           set -euo pipefail
 
-          sdkmanager --install \
-            "platforms;android-34" \
-            "build-tools;34.0.0" \
-            "ndk;26.1.10909125" \
-            "cmake;3.22.1"
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+              | sh -s -- -y --profile minimal
+          fi
+
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          "$HOME/.cargo/bin/rustup" --version
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -81,7 +87,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Erebus-debug
-          path: project/Erebus/app/build/outputs/apk/debug/*.apk
+          name: ErebusRust-debug-arm64
+          path: project/Erebus/app/build/outputs/apk/debug/ErebusRust.apk
           if-no-files-found: error
           retention-days: 14
