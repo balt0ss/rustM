@@ -1,10 +1,10 @@
-name: Build Erebus APK
+name: Build ErebusRust APK
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'Erebus.zip'
+      - 'ErebusRust.zip'
       - '.github/workflows/build.yml'
 
 permissions:
@@ -23,7 +23,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          ZIP="Erebus.zip"
+          ZIP="ErebusRust.zip"
 
           if [ ! -f "$ZIP" ]; then
             echo "ERROR: $ZIP not found in repository root"
