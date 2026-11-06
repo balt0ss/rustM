@@ -1,4 +1,3 @@
-
 name: Build ErebusRust APK
 
 on:
@@ -30,7 +29,6 @@ jobs:
           set -euo pipefail
 
           ZIP="ErebusRust.zip"
-
           if [ ! -f "$ZIP" ]; then
             echo "::error::ErebusRust.zip not found"
             exit 1
@@ -38,7 +36,6 @@ jobs:
 
           mkdir -p project
           unzip -q "$ZIP" -d project
-
           test -f project/Erebus/settings.gradle.kts
           test -f project/Erebus/app/build.gradle.kts
 
@@ -53,16 +50,14 @@ jobs:
         with:
           packages: platform-tools
 
-      - name: Install Rustup
+      - name: Install Rust
         shell: bash
         run: |
           set -euo pipefail
 
           if ! command -v rustup >/dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-              | sh -s -- -y --profile minimal
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
           fi
-
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           "$HOME/.cargo/bin/rustup" --version
 
@@ -78,7 +73,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           gradle :app:assembleDebug \
             --no-daemon \
             --stacktrace \
