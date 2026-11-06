@@ -1,0 +1,87 @@
+name: Build ErebusRust APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ErebusRust.zip'
+      - '.github/workflows/build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      # Сборка Rust лежит вне распакованного проекта, чтобы её можно было кэшировать
+      CARGO_TARGET_DIR: ${{ github.workspace }}/cargo-target
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost || true
+          df -h /
+
+      - name: Extract project ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="ErebusRust.zip"
+          if [ ! -f "$ZIP" ]; then
+            echo "ERROR: $ZIP not found in repository root"
+            exit 1
+          fi
+          mkdir -p project
+          unzip -q "$ZIP" -d project
+          if [ ! -f project/Erebus/app/build.gradle.kts ]; then
+            echo "ERROR: Expected project/Erebus/app/build.gradle.kts"
+            find project -maxdepth 5 -type f | head -100
+            exit 1
+          fi
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            cargo-target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: rust-${{ runner.os }}-${{ hashFiles('ErebusRust.zip') }}
+          restore-keys: |
+            rust-${{ runner.os }}-
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build debug APK
+        working-directory: project/Erebus
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ErebusRust-debug
+          path: project/Erebus/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
